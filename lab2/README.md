@@ -3,67 +3,69 @@
 1900017702 ZY
 ```
 要求见pdf文档
-## 单向哈希函数与MAC实验
-https://www.lanqiao.cn/courses/242
-### 实验1:生成消息摘要和MAC
-```bash
-openssl dgst -[dgsttype] [filename]
-```
-### 实验2:Keyed Hash和HMAC
-```bash
-openssl dgst -[dgsttype] -hmac [key] [filename]
-```
-### 实验3:单向哈希函数的随机性
-代码用的是python2，建议在在线实验平台上完成<br>
-翻转文件的任意一位，比较前后的Hash值
-### 实验4:单向特性（One-Way）与避免冲突特性（Collision-Free）的对比
-源文件见hash.py，代码用的是python3，建议在本地完成
-<br>
-- 朴素的描述性原理：<br>
-    > 假设hash函数是统计上均匀分布的，那么【破解次数的期望】就等于【指定满射，随机取值结果正确的概率】的倒数，即E(N)=1/P。<br>
-    > 而本题中不论是碰撞还是原值都只检验前五位，所以统计上看它们映射到正确值的概率P均为(1/16)^5，E(N)= 1048576，和实验结果N=10^6差别不太大
+## 公钥加密与 PKI 实验
+https://www.lanqiao.cn/courses/243
+### 实验1:成为数字证书认证机构（CA）
+1. 配置文件
+    ```bash
+    mkdir openssl
+    cd openssl
 
-## 密钥加解密实验
-https://www.lanqiao.cn/courses/241
-### 实验1:使用不同的加密算法与加密模式进行加密
-```bash
-openssl [enc]-[ciphertype] [-e/-d] \
--in [明文/密文] -out [密文/明文] \
--K [十六进制密钥] -iv [十六进制初始向量]
-```
-### 实验2:加密模式——ECB与CBC的区别
-1. 下载图片
-2. 分别使用 ECB 和 CBC 模式加密
-```bash
-openssl enc -aes-128-cbc -e -in pic_original.bmp -out pic_cbc.bmp \
--K 00112233445566778899aabbccddeeff \
--iv 0102030405060708
+    sudo cp /usr/lib/ssl/openssl.cnf .
+    mkdir demoCA
+    cd demoCA
+    mkdir certs crl newcerts
+    touch index.txt
+    echo '1000' > serial
+    cd ..
+    ```
+2. 自签名根证书
+    ```bash
+    openssl req -new -x509 -keyout ca.key -out ca.crt -config openssl.cnf
+    ```
+### 实验2:为PKILabServer.com生成证书
+1. 生成公开/私有密钥对
+    ```bash
+    openssl genrsa -des3 -out server.key 1024
+    ```
+2. 生成证书签名请求
+    ```bash
+    openssl req -new -key server.key -out server.csr -config openssl.cnf
+    ```
+3. 生成证书
+    ```bash
+    openssl ca -in server.csr -out server.crt -cert ca.crt -keyfile ca.key -config openssl.cnf
+    ```
+    > 如果 OpenSSL 拒绝生成证书，那很可能是因为你请求中的名字与 CA 所持有的不匹配。匹配规则在配置文件中指定([policy match]处)，你可以更改名字也可以更改规则。都做到这了，就改规则吧。
+### 实验3:在网站中使用 PKI
+1. 添加域名映射
+    ```bash
+    sudo vi /etc/hosts
+    ```
+    最后加上一行
+    ```txt
+    127.0.0.1 PKILabServer.com
+    ```
+    映射到本地IP
+2. 运行web服务器
+    ```bash
+    # Combine the secret key and certificate into one file
+    cp server.key server.pem
+    cat server.crt >> server.pem
+    # Launch the web server using server.pem 密码输入之前设置的 pkilab
+    openssl s_server -cert server.pem -www
+    ```
+3. 使用浏览器通过域名访问服务器
+    ```txt
+    浏览器一般内置了知名CA的证书
+    PKILabServer.com的证书是被我们自己的CA签名，浏览器不认识我们的CA
 
-openssl enc -aes-128-ecb -e -in pic_original.bmp -out pic_ecb.bmp \
--K 00112233445566778899aabbccddeeff \
--iv 0102030405060708
-```
-3. 修改加密后文件的文件头
-- hex editor
-    > 按字节读取，是base64而非utf-8形式
-4. 打开图片，观察结果
-> ECB加密还能看出图的部分效果，说明还保留了原数据的部分统计信息。<br>
-> 而CBC加密则更加混乱，基本看不出原图的样子。
-### 实验3:加密模式——损坏的密文
-- 加密
-```bash
-openssl enc -aes-128-ecb -e -in corrupted.txt -out cipher_aes_128_ecb.bin \
--K 0011223344556677889aabbccddeeff \
--iv 0102030405060708
-```
-- 修改
-    > hex editor
-- 解密
-```bash
-openssl enc -aes-128-ecb -d -in cipher_aes_128_ecb.bin -out decrypted.txt \
- -K 0011223344556677889aabbccddeeff \
- -iv 0102030405060708
-```
-- 对比
-    > 实验：OFB只有一个字符错误，而ECB,CBC,CFB都发生了多个字符的错误
-    > 理论：对于一处修改，OFB, ECB都只影响自己所在的单元，而CBC影响两个块，CFB则影响全部后续单元
+    点击右边的三横线按钮->首选项->高级->证书->查看证书
+        （也可以直接在地址栏输入 about:preferances#advanced 进入高级界面）
+    你将看到一列证书列表，在这里我们导入我们的证书。
+    导入 ca.crt 并且选择 “Trust this CA to identify web sites” 。
+    ```
+    1. 修改 server.pem 的一个字节并且重启服务器，访问 https://PKILabServer.com:4433 ，你观察到了些什么？确保之后恢复 server.pem.服务器可能无法重启，那样的话，换一个字节做修改。
+        > Master-Key变化
+    2. 既然 PKILabServer.com 指向 localhost，如果我们使用 https://localhost:4433 替代域名访问，就会连接到同一个服务器。请尝试这么做并解释你的观察。
+        > 不能访问。证书是针对PKILabServer.com这个域名的
