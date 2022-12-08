@@ -6,7 +6,8 @@ by SJZHZ
 ```
 ## 文件说明
 ```txt
-lab_1
-optional_lab_1
-
+lab1
+optional_lab1
+lab2
+lab3
 ```
