@@ -15,6 +15,7 @@ for port in service_ports:
     sock = socket(AF_INET, SOCK_STREAM)
     sock.settimeout(5)
     result = sock.connect_ex((target_ip, port))
+    print(port, result)
     if result == 0:
         opened_ports.append(port)
 print("Opened ports:")
